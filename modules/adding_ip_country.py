@@ -1,10 +1,11 @@
 from models.models import Country, IpCountry, IpPerfix
-from requests_html import HTMLSession
+from requests_html import HTML
 from bs4 import BeautifulSoup
+import requests
 from modules.main import session
 import time
-from settings.settings import proxies
-
+from settings.config import proxies
+from requests_html import HTMLSession
 
 def convert_ip_to_perfix(ip):
     x, y, c, d = ip.split('.')
@@ -59,34 +60,40 @@ def add_ip_country_for_one_country(country_name, ip_perfixes):
     session.commit()
 
 
-def get_ip_perfixes_by_country(country_name):
-    country_name_slug = '-'.join(country_name.split(' ')).lower()
-    url = f'https://lite.ip2location.com/{country_name_slug}-ip-address-ranges'
-
-    session_html = HTMLSession()
-    # Set proxies for the session
-    if proxies:
-        session_html.proxies = proxies
-    response = session_html.get(url)
-
-    response.html.render()  # Additional scrolling and waiting : wait=3, sleep=2, scrolldown=3
-    html_content = response.html.html
+def get_ip_perfixes_by_country(country_name, html_content):
     ip_perfixes = parse_content(html_content)
     add_ip_country_for_one_country(country_name, ip_perfixes)
     update_ip_country(country_name, ip_perfixes)
 
 
+def get_country_page_url(country_name):
+    country_name_slug = '-'.join(country_name.split(' ')).lower()
+    url = f'https://lite.ip2location.com/{country_name_slug}-ip-address-ranges'
+    return url
+
+
 def add_ip_country_for_all_countries():
     all_countries = session.query(Country).all()
-    for country in all_countries:
+
+    session_request = HTMLSession()
+
+    for i, country in enumerate(all_countries):
         print(f'\n{country.name}')
         # Start the timer
         start_time = time.time()
-        get_ip_perfixes_by_country(country.name)
-        # End the timer
-        end_time = time.time()
-        # Calculate and print the duration
-        print(f"Duration: {end_time - start_time:.5f} seconds")
+        if proxies:
+            response = session_request.get(get_country_page_url(country.name), proxies=proxies)
+        else:
+            response = session_request.get(get_country_page_url(country.name))
+
+        response.html.render(wait=3, sleep=2, scrolldown=3)
+        html_content = response.html.html
+        print(len(html_content))
+
+        get_ip_perfixes_by_country(country.name, html_content)
+        end_time = time.time()  # End the timer
+
+        print(f"Duration: {end_time - start_time:.5f} seconds")  # Calculate and print the duration
 
 
 if __name__ == '__main__':

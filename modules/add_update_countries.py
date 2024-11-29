@@ -2,7 +2,7 @@ from models.models import Country
 from modules.main import session
 from requests_html import HTMLSession
 from bs4 import BeautifulSoup
-from settings.settings import proxies
+from settings.config import proxies
 
 
 
